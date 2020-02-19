@@ -1,0 +1,183 @@
+---
+title: "20200219_Table1a"
+author: "Emma"
+date: "2/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+library(forcats)
+library(stringr)
+library(janitor)
+library(dplyr)
+library(qwraps2)
+library(plyr)
+library(ggridges)
+library(viridis)
+library(RColorBrewer)
+library(cowplot)
+library(gridExtra)
+library(effsize)
+library(stddiff)
+options(qwraps2_markup = "markdown")
+```
+
+# Read in the data
+```{r read_in, include = FALSE}
+
+data <- read_csv("20200218_COPD Qualanalysis data AM_EL_IMO.csv")
+
+```
+
+# Straighten up demographic variable categories
+```{r var_clean, include = FALSE}
+
+data <- data %>%
+  mutate(age=as.numeric(age)) %>% 
+  mutate(race_wh = ifelse(str_detect(race, "White"), 1, 0)) %>%
+  mutate(race_bl = ifelse(str_detect(race, "Black or African American"), 1, 0)) %>% 
+  mutate(race_as = ifelse(str_detect(race, "Asian"), 1, 0)) %>% 
+  mutate(race_native = ifelse(str_detect(race, "Native Hawaiian or Pacific Islander | "), 1, 0)) %>% 
+  mutate(race_native = ifelse(str_detect(race, "American Indian or Alaska Native"), 1, race_native)) %>% 
+  mutate(race_na = ifelse(str_detect(race, "Prefer not to answer"), 1, 0))
+
+data <- data %>% 
+  mutate(race2 = ifelse(race == "White", "White", NA)) %>%
+  mutate(race2 = ifelse(race == "Black or African American", "Black", race2))  %>%
+  mutate(race2 = ifelse(race == "Prefer not to answer", "Prefer not to answer", race2)) %>%
+  mutate(race2 = ifelse(is.na(race2), "Other / More than one race", race2))
+  
+data <- data %>% 
+  mutate(ed = as_factor(ed))  %>%
+  mutate(ed = fct_collapse(ed,
+              `High school diploma, equivalent or less` = c("High school graduate (high school diploma or equivalent including GED)", "Less than high school degree"), 
+              `Some college` = c("Some college but no degree", "Associate degree in college (2-year)"),
+              `Bachelor's degree (4-year) or more` = c("Bachelor's degree in college (4-year)", "Master's degree", "Doctoral degree", "Professional degree (JD, MD)"), 
+              `Graduate or professional degree` = c("Master's degree", "Doctoral degree", "Professional degree (JD, MD)"))) %>%
+  mutate(ed = fct_relevel(ed, 
+                         "High school diploma, equivalent or less", 
+                         "Some college", 
+                         "Bachelor's degree (4-year) or more")) %>%
+  mutate(vent = ifelse(vent == "Yes", "Ventilated", vent)) %>% 
+  mutate(vent = ifelse(vent == "No", "Never ventilated", vent)) %>% 
+  mutate(vent = ifelse(vent == "Unsure / I don't know", "Unsure/unknown", vent)) %>% 
+  mutate(relat = ifelse(relat == "They're my spouse or partner", "Spouse or partner of patient", relat)) %>% 
+  mutate(relat = ifelse(relat == "They're my parent, or step-parent", "Child or step-child of patient", relat)) %>% 
+  mutate(relat = ifelse(relat == "They're my sibling", "Sibling of patient", relat)) 
+
+```
+
+# Select comments about doctors
+```{r docs_select, include = FALSE}
+
+data_docs <- data %>% 
+  filter(is.na(sentim_final) == FALSE) 
+
+```
+
+```{r diffsattempt }
+
+# Cohen's D for continuous 
+cohen.d(data_docs$age, data_docs$sentim_final)
+cohen.d(data_docs$rasch_score_total, data_docs$sentim_final)
+cohen.d(data_docs$trust_score, data_docs$sentim_final)
+cohen.d(data_docs$stofhlascore, data_docs$sentim_final)
+
+# Standardized difference for categorical 
+stddiff.category(test, data_docs$sentim_final, data_docs$sex)
+# some lapply way of doing it? 
+
+```
+
+# Table 1a split by positive, negative 
+```{r tableone, results='asis'}
+
+ summary1<- 
+      list("Age" = 
+             list("median (IQR)" = ~qwraps2::median_iqr(.data$age, digits = 0)), 
+           "Gender n (%)" = 
+             list("Female"= ~qwraps2::n_perc0(.data$sex == "Female")), 
+           "Race n (%)" = 
+             list("White"= ~qwraps2::n_perc0(.data$race2 == "White"),
+                  "Black" = ~qwraps2::n_perc0(.data$race2 == "Black"), 
+                  "Other or Multiracial" = ~qwraps2::n_perc0(.data$race2 == "Other / More than one race"),
+                  "Prefer Not to answer" = ~qwraps2::n_perc0(.data$race2 == "Prefer not to answer")),
+           "Ethnicity n (%)" =
+             list("Hispanic or Latino"= ~qwraps2::n_perc0(.data$ethn == "Hispanic or Latino")),
+           "Relationship to Patient n (%)" =
+             list("Adult child"= ~qwraps2::n_perc0(.data$relat == "Child or step-child of patient"),
+                  "Spouse or partner"= ~qwraps2::n_perc0(.data$relat == "Spouse or partner of patient"),
+                  "Sibling"= ~qwraps2::n_perc0(.data$relat == "Sibling of patient")),
+           "Has your loved one ever needed a breathing machine (ventilator) during a hospital stay? n (%)" =
+             list("Yes" = ~qwraps2::n_perc0(.data$vent == "Ventilated"), 
+                  "No" = ~qwraps2::n_perc0(.data$vent == "Never ventilated"),
+                  "Unsure" = ~qwraps2::n_perc0(.data$vent == "Unsure/unknown")), 
+            "Education n (%)" = 
+             list("High school or less" = ~qwraps2::n_perc0(.data$ed == "High school diploma, equivalent or less"), 
+                  "Some college" = ~qwraps2::n_perc0(.data$ed == "Some college"), 
+                  "4-year degree or more" = ~qwraps2::n_perc0(.data$ed == "Bachelor's degree (4-year) or more")), 
+           "Geographic Region n (%)" = 
+              list("South" = ~qwraps2::n_perc0(.data$region == "South"),
+                   "Midwest" =  ~qwraps2::n_perc0(.data$region == "Midwest"),
+                   "Northeast" =  ~qwraps2::n_perc0(.data$region == "Northeast"),
+                   "West" =  ~qwraps2::n_perc0(.data$region == "West")), 
+           "Numeracy Score (range 0 - 8)" = 
+                    list("median (IQR)" = ~qwraps2::median_iqr(.data$rasch_score_total, digits = 0)),
+           "Wake Forest Physician Trust Scale (range 5 - 25)" = 
+                    list("median (IQR)" = ~qwraps2::median_iqr(.data$trust_score, digits = 0)), 
+           "Functional Health Literacy (range 0 - 36)" = 
+                    list("median (IQR)" = ~qwraps2::median_iqr(.data$stofhlascore, digits = 0)), 
+           "Specific vs. General Doctor" = 
+             list("General" = ~qwraps2::n_perc0(.data$comment_cat == 1), 
+                  "Specific" = ~qwraps2::n_perc0(.data$comment_cat == 2)))
+  
+# Table 1 with all comments 
+tab1 <- summary_table(data, summary1)
+
+# Table 1 with all doctor-related comments
+tab1_docs <- summary_table(data_docs, summary1)  
+
+# Table 1 split by comment sentiment 
+tab1_pn <- summary_table(dplyr::group_by(data_docs, sentim_final), summary1)
+
+# Combined Table 1
+tab1_combined <- cbind(summary_table(data_docs, summary1), summary_table(dplyr::group_by(data_docs, sentim_final), summary1))
+
+# How many of each cat? 
+table(data_docs$sentim_final)
+#  N  P 
+# 42 40 
+
+# Print
+print(tab1_combined, 
+      cnames = c("Negative (n=42)", "Positive (n=40)", "Combined (n=82)"), 
+      rtitle = "Demographics of Respondents with Family Members pf COPD patients Dependent on Home O2 - Comments About Doctors by Sentiment, As Categorized by Humans (Gold Standard)")
+
+#------------------------
+tableone <- print(tab1_combined, 
+      cnames = c("Negative (n=42)", "Positive (n=40)", "Combined (n=82)"), 
+      rtitle = "Demographics of Respondents with Family Members pf COPD patients Dependent on Home O2 - Comments About Doctors by Sentiment, As Categorized by Humans (Gold Standard)")
+
+write.table(tab1_combined, file = "test.txt")
+
+```
+
+
+
+
+
+
+
+
+
+
