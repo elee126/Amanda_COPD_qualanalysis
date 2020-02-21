@@ -151,7 +151,7 @@ tab1_docs <- summary_table(data_docs, summary1)
 tab1_pn <- summary_table(dplyr::group_by(data_docs, sentim_final), summary1)
 
 # Combined Table 1
-tab1_combined <- cbind(summary_table(data_docs, summary1), summary_table(dplyr::group_by(data_docs, sentim_final), summary1))
+tab1_combined <- cbind(summary_table(data, summary1), summary_table(dplyr::group_by(data_docs, sentim_final), summary1))
 
 # How many of each cat? 
 table(data_docs$sentim_final)
@@ -160,15 +160,16 @@ table(data_docs$sentim_final)
 
 # Print
 print(tab1_combined, 
-      cnames = c("Negative (n=42)", "Positive (n=40)", "Combined (n=82)"), 
+      cnames = c("All Family Members Surveyed (n = 302)", "Negative (n = 42)", "Positive (n = 40)"), 
       rtitle = "Demographics of Respondents with Family Members pf COPD patients Dependent on Home O2 - Comments About Doctors by Sentiment, As Categorized by Humans (Gold Standard)")
 
 #------------------------
-tableone <- print(tab1_combined, 
-      cnames = c("Negative (n=42)", "Positive (n=40)", "Combined (n=82)"), 
-      rtitle = "Demographics of Respondents with Family Members pf COPD patients Dependent on Home O2 - Comments About Doctors by Sentiment, As Categorized by Humans (Gold Standard)")
+test <- as.data.frame(tab1_combined)
 
-write.table(tab1_combined, file = "test.txt")
+test <- test %>% 
+  mutate(cohen = cohen.d())
+
+# ugh no i don't think so
 
 ```
 
