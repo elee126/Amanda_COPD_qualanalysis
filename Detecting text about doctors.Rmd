@@ -1,0 +1,87 @@
+---
+title: "Detecting text about doctors in the responses to an open-ended survey question"
+author: "Alison E. Turnbull"
+date: "2/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r packages, include=FALSE}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(forcats)
+library(stringr)
+library(epiR)
+```
+
+#### Load data
+```{r load data}
+data <- read_csv(here::here("data", "20200218_COPD Qualanalysis data.csv"), col_types = cols())
+```
+
+
+### Survey question:
+
+>*We are interested in any comments you have about how doctors and family members of sick patients communicate. If you'd like to share your comments with us, please write whatever you would like in the box below. Please don't mention names or identifying information.*
+
+
+### A regular expression to identify responses to open-ended questions about doctors
+```{r find comments about docs}
+    doc_comments<-str_detect(data$comment, regex("doctor.|MD.|physician.|dr.|they.", ignore_case=TRUE))
+    data$detected<-doc_comments
+    
+    data<-data %>%
+      mutate(detected = ifelse(is.na(detected), FALSE, detected)) %>%
+      mutate(gold_doc_comment= ifelse(!is.na(comment_cat), "Yes", "No"))
+```
+
+
+### Sensitivity, specificity, PPV, and NPV of that regular expression for identifying comments about doctors
+```{r SeSpPPVNPV_1}
+      table(data$gold_doc_comment, data$detected, useNA = "ifany")
+      comment_table <- as.table(matrix(c(77,4,5,216), nrow = 2, byrow = TRUE))
+      
+#Here's our 2 x 2 table
+    detect_eval<-epi.tests(comment_table, conf.level = 0.95)
+    print(detect_eval)
+```
+
+
+### Repeat that Se, Sp, PPV, NPV excluding the lines without any comments at all
+```{r SeSpPPVNPV_2}
+  data$detected_2<-doc_comments
+
+  table(data$detected_2, data$gold_doc_comment)
+  comment_table_2 <- as.table(matrix(c(77,4,5,83), nrow = 2, byrow = TRUE))
+  
+  detect_eval_2<-epi.tests(comment_table_2, conf.level = 0.95)
+    print(detect_eval_2)
+
+```
+
+
+
+#### Exploring the results.  Why did the mis-classifications happen?
+```{r false positives}
+data<-data %>%
+      mutate(detected = ifelse(is.na(detected), FALSE, detected)) %>%
+      mutate(gold_doc_comment= ifelse(!is.na(comment_cat), "Yes", "No"))
+
+data %>%
+  filter(gold_doc_comment=="No" & detected==TRUE) %>%
+  select(uid, gold_doc_comment, detected, comment)
+
+```
+
+```{r false negatives}
+data %>%
+  filter(gold_doc_comment=="Yes" & detected==FALSE) %>%
+  select(uid, gold_doc_comment, detected, comment)
+```
