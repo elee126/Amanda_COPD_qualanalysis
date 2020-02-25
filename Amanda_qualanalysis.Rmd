@@ -1,7 +1,7 @@
 ---
 title: "20200204_COPD Sentiment Analysis"
 author: "Emma"
-date: "2/5/2020"
+date: "2/17/2020"
 output: html_document
 ---
 
@@ -34,34 +34,31 @@ options(qwraps2_markup = "markdown")
 ```
 
 # Create the dataset
-```{r dataset_compilation }
+```{r dataset_compilation, comment=FALSE }
 
-# Read in dataset from original AIM 2 
-data <- read_csv(here::here("20200204_COPD_Qual w arm.csv"))
+# Read in dataset containing gold standard coding of responses to open-ended questions
+  data <- read_csv(here::here("data", "20200205_Complete COPD Qualanalysis data_v2.csv"))
 
-# Read in coding data
-coding <- read_csv(here::here("20200205_Codings.csv")) %>% 
-  select(uid, resp_id, comment, comment_cat, sentim_1, sentim_2) %>% 
-  na.omit() 
+# Read in full dataset including responses from people who did not comment
+  data_all<-read_csv(here::here("data", "20200211_COPD_Qual all data.csv"))
 
-coding <- coding %>% 
-  filter(comment_cat == 1 | comment_cat == 2)
+
+# Only keeping the unique identifier and the columns from data which contain the Gold Standard (i.e. human) coding of the comments
+  data <- data %>%
+  select(uid, comment_cat, sentim_1, sentim_2)
+
 
 # Join them
-data_complete <- left_join(data, coding, by = c("uid"="uid", "resp_id"="resp_id")) %>% 
-  filter(!is.na(comment_cat))
-
+  data <-merge(data_all, data, by="uid", all.x = TRUE)
+  rm(data_all)
+  
 # Change colname of scr_6 to "vent" and scr_7 to "relat"
-names(data_complete)[names(data_complete) == "scr_6"] <- "vent"
-names(data_complete)[names(data_complete) == "scr_7"] <- "relat"
-
+  data<-dplyr::rename(data, vent=scr_6, relat=scr_7)
 ```
 
 
-#  Export to csv :) 
+#  Export to csv
 ```{r export}
-
-write.csv(data_complete, "20200205_Complete COPD Qualanalysis data_v2.csv")
-
+write_csv(data, here::here("data", "20200217_COPD Qualanalysis data.csv"))
 ```
 

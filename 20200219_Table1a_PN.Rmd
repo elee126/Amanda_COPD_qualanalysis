@@ -171,6 +171,13 @@ test <- test %>%
 
 # ugh no i don't think so
 
+# Create Table 1 version 
+vars <- c("sex", "race2", "ethn", "relat", "vent", "ed", "region", "comment_cat")
+
+test_table <- CreateTableOne(vars = vars, strata = "sentim_final", data = data_docs, test = FALSE)
+
+print(test_table, smd = TRUE)
+
 ```
 
 
