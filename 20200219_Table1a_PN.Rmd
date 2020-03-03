@@ -29,6 +29,7 @@ library(cowplot)
 library(gridExtra)
 library(effsize)
 library(stddiff)
+library(tableone)
 options(qwraps2_markup = "markdown")
 ```
 
@@ -85,20 +86,6 @@ data_docs <- data %>%
 
 ```
 
-```{r diffsattempt }
-
-# Cohen's D for continuous 
-cohen.d(data_docs$age, data_docs$sentim_final)
-cohen.d(data_docs$rasch_score_total, data_docs$sentim_final)
-cohen.d(data_docs$trust_score, data_docs$sentim_final)
-cohen.d(data_docs$stofhlascore, data_docs$sentim_final)
-
-# Standardized difference for categorical 
-stddiff.category(test, data_docs$sentim_final, data_docs$sex)
-# some lapply way of doing it? 
-
-```
-
 # Table 1a split by positive, negative 
 ```{r tableone, results='asis'}
 
@@ -139,7 +126,13 @@ stddiff.category(test, data_docs$sentim_final, data_docs$sex)
                     list("median (IQR)" = ~qwraps2::median_iqr(.data$stofhlascore, digits = 0)), 
            "Specific vs. General Doctor" = 
              list("General" = ~qwraps2::n_perc0(.data$comment_cat == 1), 
-                  "Specific" = ~qwraps2::n_perc0(.data$comment_cat == 2)))
+                  "Specific" = ~qwraps2::n_perc0(.data$comment_cat == 2)),
+           "Trial Arm" = 
+             list("Direct (control)" = ~qwraps2::nperc0(.data$arm == "Direct"), 
+                  "Indirect - pathophysiology" = ~qwraps2::nperc0(.data$arm == "Indirect - pathophysiology"), 
+                  "Indirect - other patients" = ~qwraps2::nperc0(.data$arm == "Indirect - other patients"), 
+                  "Redirection" = ~qwraps2::nperc0(.data$arm == "Redirection"))
+           )
   
 # Table 1 with all comments 
 tab1 <- summary_table(data, summary1)
@@ -163,25 +156,48 @@ print(tab1_combined,
       cnames = c("All Family Members Surveyed (n = 302)", "Negative (n = 42)", "Positive (n = 40)"), 
       rtitle = "Demographics of Respondents with Family Members pf COPD patients Dependent on Home O2 - Comments About Doctors by Sentiment, As Categorized by Humans (Gold Standard)")
 
-#------------------------
-test <- as.data.frame(tab1_combined)
 
-test <- test %>% 
-  mutate(cohen = cohen.d())
-
-# ugh no i don't think so
-
-# Create Table 1 version 
-vars <- c("sex", "race2", "ethn", "relat", "vent", "ed", "region", "comment_cat")
-
-test_table <- CreateTableOne(vars = vars, strata = "sentim_final", data = data_docs, test = FALSE)
-
-print(test_table, smd = TRUE)
 
 ```
 
 
+```{r diffsattempt }
 
+# Cohen's D for continuous 
+cohen.d(data_docs$age, data_docs$sentim_final)                # Age
+cohen.d(data_docs$rasch_score_total, data_docs$sentim_final)  # Numeracy score 
+cohen.d(data_docs$trust_score, data_docs$sentim_final)        # Trust score
+cohen.d(data_docs$stofhlascore, data_docs$sentim_final)       # Health literacy score 
+
+# SMD (or STD) for categorical 
+# CreateTableOne -> smd version of std (ct1)
+vars <- c("sex", "race2", "ethn", "relat", "vent", "ed", "region", "comment_cat")
+
+ct1_table <- CreateTableOne(vars = vars, strata = "sentim_final", data = data_docs, test = FALSE)
+
+print(test_table, smd = TRUE)
+
+#------------------------
+
+# Standardized difference for categorical 
+
+# Make a dataset that fits the stddiff requirements with 
+# gcol = col number of group variable i.e. sentim_final (0 for negative, 1 for positive) 
+# vcol = col number of different types of variables in data 
+# vcol numbers: 3,5,7,8,9,10,14(?arm),27
+
+std <- data_docs %>% 
+  mutate(sentim_final = ifelse(sentim_final == "N", 0, sentim_final)) %>% 
+  mutate(sentim_final = ifelse(sentim_final == "P", 1, sentim_final))
+
+std2 <- data.frame(
+  dplyr::pull(std, ed)
+)
+
+stddiff.category(data = std, gcol = 21, vcol = c(3, 5, 7, 8))
+
+
+```
 
 
 
